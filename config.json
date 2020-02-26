@@ -1,0 +1,29 @@
+{
+  "preprocessing": {
+    "sample_rate": 16000,
+    "num_fft": 2048,
+    "num_mels": 80,
+    "fmin": 50,
+    "preemph": 0.97,
+    "top_db": 80,
+    "hop_length": 160,
+    "win_length": 400
+  },
+
+  "model": {
+    "encoder_channels": 256,
+    "z_dim": 256,
+    "c_dim": 256
+  },
+
+  "training": {
+    "n_sample_frames": 128,
+    "n_speakers": 8,
+    "n_utterances_per_speaker": 6,
+    "learning_rate": 2e-4,
+    "n_prediction_steps": 12,
+    "n_negatives": 17,
+    "n_epochs": 5000,
+    "checkpoint_interval": 500
+  }
+}
