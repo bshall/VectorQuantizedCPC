@@ -7,13 +7,22 @@
     "preemph": 0.97,
     "top_db": 80,
     "hop_length": 160,
-    "win_length": 400
+    "win_length": 400,
+    "bits": 8
   },
 
   "model": {
     "encoder_channels": 256,
     "z_dim": 256,
-    "c_dim": 256
+    "c_dim": 256,
+    "vocoder": {
+      "conditioning_channels": 128,
+      "num_speakers": 102,
+      "speaker_embedding_dim": 64,
+      "embedding_dim": 256,
+      "rnn_channels": 896,
+      "fc_channels": 256
+    }
   },
 
   "training": {
@@ -24,6 +33,10 @@
     "n_prediction_steps": 12,
     "n_negatives": 17,
     "n_epochs": 5000,
-    "checkpoint_interval": 500
+    "checkpoint_interval": 500,
+    "num_steps": 600000,
+    "batch_size": 32,
+    "sample_frames": 24,
+    "global_checkpoint_interval": 1000
   }
 }

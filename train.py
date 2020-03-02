@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 import argparse
-
+import sys
 import numpy as np
 from dataset import SpeakerDataset
 from torch.utils.data import DataLoader
@@ -68,7 +68,8 @@ def train_fn(args, params):
         average_loss = average_vq_loss = average_perplexity = 0
         average_accuracies = np.zeros(params["training"]["n_prediction_steps"])
 
-        for i, (mels, _) in enumerate(tqdm(dataloader), 1):
+        for i, (mels, red) in enumerate(tqdm(dataloader), 1):
+
             mels = mels.to(device)
             mels = mels.view(
                 params["training"]["n_speakers"]*params["training"]["n_utterances_per_speaker"],
@@ -94,7 +95,7 @@ def train_fn(args, params):
         print("perplexity: {}".format(average_perplexity))
         print(average_accuracies)
 
-        if epoch % params["training"]["checkpoint_interval"] == 0:
+        if epoch % params["training"]["global_checkpoint_interval"] == 0:
             save_checkpoint(model, cpc, optimizer, epoch, Path(args.checkpoint_dir))
 
 
