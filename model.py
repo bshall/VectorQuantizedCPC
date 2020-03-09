@@ -8,40 +8,42 @@ import numpy as np
 from preprocess import mulaw_decode
 
 class VQEmbeddingEMA(nn.Module):
-    def __init__(self, latent_dim, num_embeddings, embedding_dim, commitment_cost=0.25, decay=0.999, epsilon=1e-5):
+    def __init__(self, num_embeddings, embedding_dim, commitment_cost=0.25, decay=0.999, epsilon=1e-5):
         super(VQEmbeddingEMA, self).__init__()
         self.commitment_cost = commitment_cost
         self.decay = decay
         self.epsilon = epsilon
 
-        embedding = torch.zeros(latent_dim, num_embeddings, embedding_dim)
-        embedding.uniform_(-1 / num_embeddings, 1 / num_embeddings)
+        bound = 1 / 1024
+        embedding = torch.zeros(num_embeddings, embedding_dim)
+        embedding.uniform_(-bound, bound)
         self.register_buffer("embedding", embedding)
-        self.register_buffer("ema_count", torch.zeros(latent_dim, num_embeddings))
+        self.register_buffer("ema_count", torch.zeros(num_embeddings))
         self.register_buffer("ema_weight", self.embedding.clone())
 
     def forward(self, x):
-        B, C, L = x.size()
-        N, M, D = self.embedding.size()
-        assert C == N * D
+        M, D = self.embedding.size()
 
-        x = x.view(B, N, D, L).permute(1, 0, 3, 2)  # N, B, L, D
-        x_flat = x.detach().reshape(N, -1, D)
+        x = x.transpose(1, 2)
+        x_flat = x.detach().reshape(-1, D)
 
-        distances = torch.cdist(x_flat, self.embedding)
-        indices = torch.argmin(distances, dim=-1)
+        distances = torch.addmm(torch.sum(self.embedding ** 2, dim=1) +
+                                torch.sum(x_flat ** 2, dim=1, keepdim=True),
+                                x_flat, self.embedding.t(),
+                                alpha=-2.0, beta=1.0)
 
+        indices = torch.argmin(distances.float(), dim=-1)
         encodings = F.one_hot(indices, M).float()
-        quantized = torch.gather(self.embedding, 1, indices.unsqueeze(-1).expand(-1, -1, D))
+        quantized = F.embedding(indices, self.embedding)
         quantized = quantized.view_as(x)
 
         if self.training:
-            self.ema_count = self.decay * self.ema_count + (1 - self.decay) * torch.sum(encodings, dim=1)
+            self.ema_count = self.decay * self.ema_count + (1 - self.decay) * torch.sum(encodings, dim=0)
 
-            n = torch.sum(self.ema_count, dim=-1, keepdim=True)
+            n = torch.sum(self.ema_count)
             self.ema_count = (self.ema_count + self.epsilon) / (n + M * self.epsilon) * n
 
-            dw = torch.bmm(encodings.transpose(1, 2), x_flat)
+            dw = torch.matmul(encodings.t(), x_flat)
             self.ema_weight = self.decay * self.ema_weight + (1 - self.decay) * dw
 
             self.embedding = self.ema_weight / self.ema_count.unsqueeze(-1)
@@ -51,10 +53,59 @@ class VQEmbeddingEMA(nn.Module):
 
         quantized = x + (quantized - x).detach()
 
-        avg_probs = torch.mean(encodings, dim=1)
-        perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10), dim=-1))
+        avg_probs = torch.mean(encodings, dim=0)
+        perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10)))
 
-        return quantized.permute(1, 0, 3, 2).reshape(B, C, L), loss, perplexity.sum()
+        return quantized, loss, perplexity
+
+# class VQEmbeddingEMA(nn.Module):
+#     def __init__(self, latent_dim, num_embeddings, embedding_dim, commitment_cost=0.25, decay=0.999, epsilon=1e-5):
+#         super(VQEmbeddingEMA, self).__init__()
+#         self.commitment_cost = commitment_cost
+#         self.decay = decay
+#         self.epsilon = epsilon
+
+#         embedding = torch.zeros(latent_dim, num_embeddings, embedding_dim)
+#         embedding.uniform_(-1 / num_embeddings, 1 / num_embeddings)
+#         self.register_buffer("embedding", embedding)
+#         self.register_buffer("ema_count", torch.zeros(latent_dim, num_embeddings))
+#         self.register_buffer("ema_weight", self.embedding.clone())
+
+#     def forward(self, x):
+#         B, C, L = x.size()
+#         N, M, D = self.embedding.size()
+#         assert C == N * D
+
+#         x = x.view(B, N, D, L).permute(1, 0, 3, 2)  # N, B, L, D
+#         x_flat = x.detach().reshape(N, -1, D)
+
+#         distances = torch.cdist(x_flat, self.embedding)
+#         indices = torch.argmin(distances, dim=-1)
+
+#         encodings = F.one_hot(indices, M).float()
+#         quantized = torch.gather(self.embedding, 1, indices.unsqueeze(-1).expand(-1, -1, D))
+#         quantized = quantized.view_as(x)
+
+#         if self.training:
+#             self.ema_count = self.decay * self.ema_count + (1 - self.decay) * torch.sum(encodings, dim=1)
+
+#             n = torch.sum(self.ema_count, dim=-1, keepdim=True)
+#             self.ema_count = (self.ema_count + self.epsilon) / (n + M * self.epsilon) * n
+
+#             dw = torch.bmm(encodings.transpose(1, 2), x_flat)
+#             self.ema_weight = self.decay * self.ema_weight + (1 - self.decay) * dw
+
+#             self.embedding = self.ema_weight / self.ema_count.unsqueeze(-1)
+
+#         e_latent_loss = F.mse_loss(x, quantized.detach())
+#         loss = self.commitment_cost * e_latent_loss
+
+#         quantized = x + (quantized - x).detach()
+
+#         avg_probs = torch.mean(encodings, dim=1)
+#         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10), dim=-1))
+
+#         return quantized.permute(1, 0, 3, 2).reshape(B, C, L), loss, perplexity.sum()
 
 
 class ChannelNorm(nn.Module):
@@ -124,14 +175,16 @@ class Encoder(nn.Module):
             nn.ReLU(True),
             nn.Conv1d(encoder_channels, z_dim, 1),
         )
-        self.codebook = VQEmbeddingEMA(2, 128, 128)
+        self.codebook = VQEmbeddingEMA(256, 256)
         self.rnn = nn.LSTM(z_dim, c_dim, batch_first=True)
 
     def forward(self, mels):
         z = self.encoder(mels)
         z, loss, perplexity = self.codebook(z)
-        z = z.transpose(1, 2)
+        # z = z.transpose(1, 2) #
         c, _ = self.rnn(z)
+        # c = c.transpose(1, 2) #
+        # c, loss, perplexity = self.codebook(c) #
         return z, c, loss, perplexity
 
 

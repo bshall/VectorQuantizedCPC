@@ -33,6 +33,7 @@ def encode_dataset(args, params):
             z, c, _, _ = model(mel)
 
         output = z.squeeze().cpu().numpy()
+        # output = c.squeeze().cpu().numpy() #
         time = np.linspace(0, (mel.size(-1) - 1) * hop_length_seconds, len(output))
         relative_path = path.relative_to(in_dir).with_suffix("")
         out_path = out_dir / relative_path

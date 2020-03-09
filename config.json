@@ -32,7 +32,7 @@
     "learning_rate": 2e-4,
     "n_prediction_steps": 12,
     "n_negatives": 17,
-    "n_epochs": 5000,
+    "n_epochs": 10000,
     "checkpoint_interval": 500,
     "num_steps": 600000,
     "batch_size": 32,

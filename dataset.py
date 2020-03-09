@@ -40,7 +40,7 @@ class SpeakerDataset(Dataset):
             path = self.root.parent / path
             mel = np.load(path.with_suffix(".mel.npy"))
             pos = random.randint(0, mel.shape[1] - self.n_sample_frames)
-            mel = mel[:, pos:pos + self.n_sample_frames+1]
+            mel = mel[:, pos:pos + self.n_sample_frames]
             mels.append(mel)
         mels = np.stack(mels)
 

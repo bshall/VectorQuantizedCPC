@@ -4,19 +4,30 @@ import argparse
 import sys
 import numpy as np
 from dataset import SpeakerDataset
+import torch
 from torch.utils.data import DataLoader
+torch.backends.cudnn.version()
 import torch.optim as optim
 from model import Encoder, CPCLoss
+import os
+from os import path
 from itertools import chain
-import torch
+import torch.nn.functional as F
 from tqdm import tqdm
+from pathlib import Path
+import apex.amp as amp
+# import apex.apex as apex
+# sys.path.append(path.join(".", "apex", "apex", "amp"))
+# import apex.apex.amp.amp as amp
 
+from torch.utils.tensorboard import SummaryWriter
 
-def save_checkpoint(model, cpc, optimizer, epoch, checkpoint_dir):
+def save_checkpoint(model, cpc, optimizer, amp, epoch, checkpoint_dir):
     checkpoint_state = {
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
         "cpc": cpc.state_dict(),
+        "amp": amp.state_dict(),
         "epoch": epoch}
     checkpoint_path = checkpoint_dir / "model.ckpt-{}.pt".format(epoch)
     torch.save(checkpoint_state, checkpoint_path)
@@ -43,12 +54,15 @@ def train_fn(args, params):
     optimizer = optim.Adam(chain(model.parameters(), cpc.parameters()),
                            lr=params["training"]["learning_rate"])
 
+    model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+
     if args.resume is not None:
         print("Resume checkpoint from: {}:".format(args.resume))
         checkpoint = torch.load(args.resume, map_location=lambda storage, loc: storage)
         model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optimizer"])
         cpc.load_state_dict(checkpoint["cpc"])
+        amp.load_state_dict(checkpoint["amp"])
         start_epoch = checkpoint["epoch"]
     else:
         start_epoch = 1
@@ -68,7 +82,7 @@ def train_fn(args, params):
         average_loss = average_vq_loss = average_perplexity = 0
         average_accuracies = np.zeros(params["training"]["n_prediction_steps"])
 
-        for i, (mels, red) in enumerate(tqdm(dataloader), 1):
+        for i, (mels, _) in enumerate(tqdm(dataloader), 1):
 
             mels = mels.to(device)
             mels = mels.view(
@@ -80,7 +94,10 @@ def train_fn(args, params):
             loss = loss + vq_loss
 
             optimizer.zero_grad()
-            loss.backward()
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
+
+            torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), 1)
             optimizer.step()
 
             average_loss += (loss.item() - average_loss) / i
@@ -95,8 +112,8 @@ def train_fn(args, params):
         print("perplexity: {}".format(average_perplexity))
         print(average_accuracies)
 
-        if epoch % params["training"]["global_checkpoint_interval"] == 0:
-            save_checkpoint(model, cpc, optimizer, epoch, Path(args.checkpoint_dir))
+        if epoch % params["training"]["checkpoint_interval"] == 0:
+            save_checkpoint(model, cpc, optimizer, amp, epoch, Path(args.checkpoint_dir))
 
 
 if __name__ == "__main__":
