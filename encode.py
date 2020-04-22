@@ -30,10 +30,10 @@ def encode_dataset(args, params):
     for path in tqdm(in_dir.rglob("*.mel.npy")):
         mel = torch.from_numpy(np.load(path)).unsqueeze(0).to(device)
         with torch.no_grad():
-            z, c, _, _ = model(mel)
+            z, c, _, _ = model(mel, False)
 
-        output = z.squeeze().cpu().numpy()
-        # output = c.squeeze().cpu().numpy() #
+        # output = z.squeeze().cpu().numpy()
+        output = c.squeeze().cpu().numpy() #
         time = np.linspace(0, (mel.size(-1) - 1) * hop_length_seconds, len(output))
         relative_path = path.relative_to(in_dir).with_suffix("")
         out_path = out_dir / relative_path

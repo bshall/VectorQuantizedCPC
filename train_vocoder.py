@@ -94,7 +94,7 @@ def train_fn(args, params):
 
             audio, mels, speakers = audio.to(device), mels.to(device), speakers.to(device)
             with torch.no_grad():
-                z, c, _, _ = model(mels)
+                z, c, _, _ = model(mels, False)
 
             output = vocoder(audio[:, :-1], c, speakers)
             recon_loss = F.cross_entropy(output.transpose(1, 2), audio[:, 1:])

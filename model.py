@@ -14,7 +14,7 @@ class VQEmbeddingEMA(nn.Module):
         self.decay = decay
         self.epsilon = epsilon
 
-        bound = 1 / 1024
+        bound = 1 / 512
         embedding = torch.zeros(num_embeddings, embedding_dim)
         embedding.uniform_(-bound, bound)
         self.register_buffer("embedding", embedding)
@@ -147,41 +147,96 @@ class ChannelNorm(nn.Module):
             x = x * self.weight + self.bias
         return x
 
+class basicblock(nn.Module):
+    def __init__(self, encoder_channels):
+        super(basicblock, self).__init__()
+        self.conv_layer = nn.Conv1d(encoder_channels, encoder_channels, 1)
+        self.channel_norm = ChannelNorm(encoder_channels)
+        self.relu = nn.ReLU(True)        
+
+    def forward(self, x):
+        initial_x = x
+        x = self.conv_layer(x)
+        x = self.channel_norm(x)
+        x = x + initial_x
+        x = self.relu(x)
+
+        return x
+
 
 class Encoder(nn.Module):
     def __init__(self, in_channels, encoder_channels, z_dim, c_dim):
         super(Encoder, self).__init__()
+        # self.encoder = nn.Sequential(
+        #     nn.Conv1d(in_channels, encoder_channels, 3, 1, 1),
+        #     ChannelNorm(encoder_channels),
+        #     # nn.BatchNorm1d(encoder_channels),
+        #     nn.ReLU(True),
+        #     #########################################################
+        #     basicblock(encoder_channels),
+        #     #########################################################
+        #     basicblock(encoder_channels),
+        #     #########################################################
+        #     basicblock(encoder_channels),
+        #     #########################################################
+        #     basicblock(encoder_channels),
+        #     #########################################################
+        #     basicblock(encoder_channels),
+        #     #########################################################
+        #     basicblock(encoder_channels),
+        #     #########################################################
+        #     nn.Conv1d(encoder_channels, z_dim, 1),
+        # )
         self.encoder = nn.Sequential(
             nn.Conv1d(in_channels, encoder_channels, 3, 1, 1),
             ChannelNorm(encoder_channels),
+            # nn.BatchNorm1d(encoder_channels),
             nn.ReLU(True),
+            #########################################################
             nn.Conv1d(encoder_channels, encoder_channels, 1),
             ChannelNorm(encoder_channels),
+            # nn.BatchNorm1d(encoder_channels),
             nn.ReLU(True),
+
+            #########################################################
             nn.Conv1d(encoder_channels, encoder_channels, 1),
             ChannelNorm(encoder_channels),
+            # nn.BatchNorm1d(encoder_channels),
             nn.ReLU(True),
+            #########################################################
             nn.Conv1d(encoder_channels, encoder_channels, 1),
             ChannelNorm(encoder_channels),
+            # nn.BatchNorm1d(encoder_channels),
             nn.ReLU(True),
+            #########################################################
             nn.Conv1d(encoder_channels, encoder_channels, 1),
             ChannelNorm(encoder_channels),
+            # nn.BatchNorm1d(encoder_channels),
             nn.ReLU(True),
+            #########################################################
             nn.Conv1d(encoder_channels, encoder_channels, 1),
             ChannelNorm(encoder_channels),
+            # nn.BatchNorm1d(encoder_channels),
             nn.ReLU(True),
+            #########################################################
             nn.Conv1d(encoder_channels, encoder_channels, 1),
             ChannelNorm(encoder_channels),
+            # nn.BatchNorm1d(encoder_channels),
             nn.ReLU(True),
+            #########################################################
             nn.Conv1d(encoder_channels, z_dim, 1),
         )
         self.codebook = VQEmbeddingEMA(256, 256)
         self.rnn = nn.LSTM(z_dim, c_dim, batch_first=True)
 
-    def forward(self, mels):
+    def forward(self, mels, use_vq_layer=True):
         z = self.encoder(mels)
-        z, loss, perplexity = self.codebook(z)
-        # z = z.transpose(1, 2) #
+        if use_vq_layer:
+            z, loss, perplexity = self.codebook(z)
+        else:
+            z = z.transpose(1, 2) #
+            loss = torch.tensor(0)
+            perplexity = torch.tensor(0)
         c, _ = self.rnn(z)
         # c = c.transpose(1, 2) #
         # c, loss, perplexity = self.codebook(c) #

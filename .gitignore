@@ -133,3 +133,17 @@ dmypy.json
 
 # Data files
 .npy
+
+abx_scores.txt
+docker/
+apex/
+build_gpu_docker_image.sh
+checkpoints/
+commands.txt
+converted/
+data/
+datasets/
+echo
+encoded/
+runs/
+vocoder_checkpoints/

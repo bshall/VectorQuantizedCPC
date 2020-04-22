@@ -89,9 +89,10 @@ def train_fn(args, params):
                 params["training"]["n_speakers"]*params["training"]["n_utterances_per_speaker"],
                 params["preprocessing"]["num_mels"], -1)
 
-            z, c, vq_loss, perplexity = model(mels)
+            z, c, vq_loss, perplexity = model(mels, False)
+
             loss, accuracy = cpc(z, c)
-            loss = loss + vq_loss
+            loss = loss #+ vq_loss
 
             optimizer.zero_grad()
             with amp.scale_loss(loss, optimizer) as scaled_loss:

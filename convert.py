@@ -57,7 +57,7 @@ def convert(args, params):
         speaker = torch.LongTensor([speakers.index(speaker_id)]).to(device)
 
         with torch.no_grad():
-          z, c, _, _ = model(mel)
+          z, c, _, _ = model(mel, False)
           output = vocoder.generate(c, speaker)
 
         utterance_id = mel_path.stem.split("_")[1]
