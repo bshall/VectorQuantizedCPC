@@ -1,51 +1,72 @@
-import argparse
-from pathlib import Path
+import hydra
+import hydra.utils as utils
+
 import json
 import numpy as np
-import torch
-from model import Encoder
+from pathlib import Path
 from tqdm import tqdm
 
+import torch
 
-def encode_dataset(args, params):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from model import Encoder
 
-    model = Encoder(in_channels=params["preprocessing"]["num_mels"],
-                    encoder_channels=params["model"]["encoder_channels"],
-                    z_dim=params["model"]["z_dim"],
-                    c_dim=params["model"]["c_dim"])
-    model.to(device)
 
-    print("Load checkpoint from: {}:".format(args.checkpoint))
-    checkpoint = torch.load(args.checkpoint, map_location=lambda storage, loc: storage)
-    model.load_state_dict(checkpoint["model"])
-    model.eval()
-
-    out_dir = Path(args.out_dir)
+@hydra.main(config_path="config/encode.yaml")
+def encode_dataset(cfg):
+    out_dir = Path(utils.to_absolute_path(cfg.out_dir))
     out_dir.mkdir(exist_ok=True, parents=True)
 
-    hop_length_seconds = params["preprocessing"]["hop_length"] / params["preprocessing"]["sample_rate"]
+    root_path = Path(utils.to_absolute_path("datasets")) / cfg.dataset.path
+    with open(root_path / "test.json") as file:
+        metadata = json.load(file)
 
-    in_dir = Path(args.in_dir)
-    for path in tqdm(in_dir.rglob("*.mel.npy")):
-        mel = torch.from_numpy(np.load(path)).unsqueeze(0).to(device)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    encoder = Encoder(**cfg.model.encoder)
+    encoder.to(device)
+
+    print("Load checkpoint from: {}:".format(cfg.checkpoint))
+    checkpoint_path = utils.to_absolute_path(cfg.checkpoint)
+    checkpoint = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
+    encoder.load_state_dict(checkpoint["encoder"])
+
+    encoder.eval()
+
+    if cfg.save_auxiliary:
+        auxiliary = []
+
+        def hook(module, input, output):
+            auxiliary.append(output.clone())
+
+        encoder.encoder[-1].register_forward_hook(hook)
+
+    for _, _, _, path in tqdm(metadata):
+        path = root_path.parent / path
+        mel = torch.from_numpy(np.load(path.with_suffix(".mel.npy"))).unsqueeze(0).to(device)
         with torch.no_grad():
-            z, c, _, _ = model(mel)
+            z, c, indices = encoder.encode(mel)
 
-        output = z.squeeze().cpu().numpy()
-        time = np.linspace(0, (mel.size(-1) - 1) * hop_length_seconds, len(output))
-        relative_path = path.relative_to(in_dir).with_suffix("")
-        out_path = out_dir / relative_path
-        out_path.parent.mkdir(exist_ok=True, parents=True)
-        np.savez(out_path.with_suffix(".npz"), features=output, time=time)
+        z = z.squeeze().cpu().numpy()
+
+        out_path = out_dir / path.stem
+        with open(out_path.with_suffix(".txt"), "w") as file:
+            np.savetxt(file, z, fmt="%.16f")
+
+        if cfg.save_auxiliary:
+            aux_path = out_dir.parent / "auxiliary_embedding1"
+            aux_path.mkdir(exist_ok=True, parents=True)
+            out_path = aux_path / path.stem
+            c = c.squeeze().cpu().numpy()
+            with open(out_path.with_suffix(".txt"), "w") as file:
+                np.savetxt(file, c, fmt="%.16f")
+
+            aux_path = out_dir.parent / "auxiliary_embedding2"
+            aux_path.mkdir(exist_ok=True, parents=True)
+            out_path = aux_path / path.stem
+            aux = auxiliary.pop().squeeze().cpu().numpy()
+            with open(out_path.with_suffix(".txt"), "w") as file:
+                np.savetxt(file, aux, fmt="%.16f")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", type=str, help="Checkpoint path to resume")
-    parser.add_argument("--in-dir", type=str, help="Directory to encode")
-    parser.add_argument("--out-dir", type=str, help="Output path")
-    args = parser.parse_args()
-    with open("config.json") as file:
-        params = json.load(file)
-    encode_dataset(args, params)
+    encode_dataset()
