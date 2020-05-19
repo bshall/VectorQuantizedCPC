@@ -106,21 +106,23 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# Preprocessed data
+*.npy
+
 # Model checkpoints
 checkpoints/
-*.pt
 
-# Datasets and Preprocessed data
+# Datasets
 datasets/
-*.npy
 
 # Submission
 submission/
-*.wav
-submission.zip
 
 # Hydra outputs
 outputs/
+
+*.zip
+*.ipynb
 
 # Tensorboard
 tensorboard/
