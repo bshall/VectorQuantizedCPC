@@ -1,14 +1,14 @@
 # Vector-Quantized Contrastive Predictive Coding
 
-To learn discrete representations of speech for the [ZeroSpeech challenges](https://zerospeech.com/), we propose vector-quantized contrastive predictive coding.
-An encoder maps input speech into a discrete sequence of codes.
-Next, an autoregressive model summarises the latent representation (up until time t) into a context vector.
-Using this context, the model learns to discriminate future frames from negative examples sampled randomly from other utterances.
-Finally, an RNN based vocoder is trained to generate audio from the discretized representation.
+Train and evaluate the VQ-VAE model for our submission to the [ZeroSpeech 2020 challenge](https://zerospeech.com/).
+Voice conversion samples can be found [here](https://bshall.github.io/VectorQuantizedCPC/).
+Pretrained weights for the 2019 English and Indonesian datasets can be found [here](https://github.com/bshall/VectorQuantizedCPC/releases/tag/v0.1).
+Leader-board for the ZeroSpeech 2020 challenge can be found [here](https://zerospeech.com/2020/results.html).
 
 <p align="center">
   <img width="784" height="340" alt="VQ-CPC model summary"
     src="https://raw.githubusercontent.com/bshall/VectorQuantizedCPC/master/model.png">
+  <sup><strong>Fig 1:</strong> VQ-CPC model architecture.</sup>
 </p>
 
 ## Requirements

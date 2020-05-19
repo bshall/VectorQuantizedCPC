@@ -4,7 +4,7 @@ training:
     n_utterances_per_speaker: 8
     n_prediction_steps: 12
     n_negatives: 17
-    n_epochs: 25000
+    n_epochs: 22000
     scheduler:
         warmup_epochs: 150
         initial_lr: 1e-5
