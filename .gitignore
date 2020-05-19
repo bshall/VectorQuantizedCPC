@@ -121,3 +121,6 @@ submission.zip
 
 # Hydra outputs
 outputs/
+
+# Tensorboard
+tensorboard/
