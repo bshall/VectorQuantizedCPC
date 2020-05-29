@@ -7,7 +7,7 @@ Leader-board for the ZeroSpeech 2020 challenge can be found [here](https://zeros
 
 <p align="center">
   <img width="784" height="340" alt="VQ-CPC model summary"
-    src="https://raw.githubusercontent.com/bshall/VectorQuantizedCPC/master/model.png">
+    src="https://raw.githubusercontent.com/bshall/VectorQuantizedCPC/master/model.png"><br>
   <sup><strong>Fig 1:</strong> VQ-CPC model architecture.</sup>
 </p>
 
