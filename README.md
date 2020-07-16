@@ -45,7 +45,8 @@ Leader-board for the ZeroSpeech 2020 challenge can be found [here](https://zeros
     
 ## Training
    
-1.  Train the VQ-CPC model (pretrained weights are given above):
+1.  Train the VQ-CPC model (or download pretrained weights
+    [here](https://github.com/bshall/VectorQuantizedCPC/releases/tag/v0.1):
     ```
     python train_cpc.py checkpoint_dir=path/to/checkpoint_dir dataset=[2019/english or 2019/surprise]
     ```
@@ -87,7 +88,8 @@ Example usage:
 ```
 python convert.py cpc_checkpoint=checkpoints/cpc/english2019/model.ckpt-25000.pt vocoder_checkpoint=checkpoints/vocoder/english2019/model.ckpt-150000.pt in_dir=../datasets/2020/2019 out_dir=submission/2019/english/test synthesis_list=datasets/2019/english/synthesis.json in_dir=../../Datasets/2020/2019 dataset=2019/english
 ```
-Voice conversion samples will be available soon.
+Voice conversion samples are available
+[here](https://bshall.github.io/VectorQuantizedCPC/).
 
 ### ABX Score
     
